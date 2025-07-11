@@ -32,3 +32,5 @@ trove_classifiers==2025.5.9.12
 urllib3_secure_extra==0.1.0
 win32com==0.0.1
 gunicorn
+beautifulsoup4
+lxml
