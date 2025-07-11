@@ -1,6 +1,7 @@
 from utils import from_hhmm, to_hhmm, calculate_duration_minutes
 from langchain_community.document_loaders import WebBaseLoader
 import re
+import requests
 
 
 def albany_scraper(target_date):
@@ -22,6 +23,25 @@ def albany_scraper(target_date):
     }
 
     print(f"Loading data from: {base_url}")
+
+    try:
+        response = requests.get(base_url, headers=headers, timeout=10)
+
+        # --- NEW DEBUGGING LINES ---
+        print(f"Status Code: {response.status_code}")
+        print(f"Response Content Length: {len(response.text)}")
+        print(f"Response Content (first 500 chars):\n{response.text[:500]}")
+
+        response.raise_for_status()  # This will raise an exception for bad status codes (e.g., 4xx or 5xx)
+
+        s = response.text
+        print(s)
+
+    except requests.exceptions.RequestException as e:
+        print(f"An error occurred: {e}")
+        return [{"message": "Failed to load from the website due to a network error."}]
+
+
     loader = WebBaseLoader(base_url, requests_kwargs={"headers": headers})
     docs = loader.load()
 
