@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Tennis Court Assistant</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100vh;
+        }
+        #chat-container {
+            width: 90%;
+            max-width: 800px;
+            background-color: #fff;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            border-radius: 8px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            margin-top: 20px;
+            height: calc(100% - 100px);
+        }
+        #chat-log {
+            flex-grow: 1;
+            padding: 20px;
+            overflow-y: auto;
+            border-bottom: 1px solid #ccc;
+        }
+        .message {
+            margin-bottom: 15px;
+            line-height: 1.5;
+            padding: 10px 15px;
+            border-radius: 15px;
+            word-wrap: break-word;
+        }
+        .user-message {
+            background-color: #d1e7dd;
+            color: #155724;
+            align-self: flex-end;
+            margin-left: 30%;
+        }
+        .bot-message {
+            background-color: #f8d7da;
+            color: #721c24;
+            align-self: flex-start;
+            margin-right: 30%;
+        }
+        #input-container {
+            display: flex;
+            padding: 10px;
+            border-top: 1px solid #ccc;
+        }
+        #user-input {
+            flex-grow: 1;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 20px;
+            margin-right: 10px;
+            font-size: 16px;
+        }
+        #send-button {
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <h1>AI Tennis Court Assistant</h1>
+    <div id="chat-container">
+        <div id="chat-log"></div>
+        <div id="input-container">
+            <input type="text" id="user-input" placeholder="Type your message here..." />
+            <button id="send-button">Send</button>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const chatLog = document.getElementById('chat-log');
+            const userInput = document.getElementById('user-input');
+            const sendButton = document.getElementById('send-button');
+
+            function appendMessage(sender, message) {
+                const messageDiv = document.createElement('div');
+                messageDiv.classList.add('message');
+                messageDiv.classList.add(sender === 'user' ? 'user-message' : 'bot-message');
+
+                if (sender === 'bot') {
+                    // Split the message into logical sections
+                    const lines = message.split('\n');
+                    let htmlContent = '';
+                    let currentPark = '';
+                    let currentCourt = '';
+
+                    lines.forEach(line => {
+                        line = line.trim();
+                        if (line === '') {
+                            // Close any open lists
+                            if (currentCourt) {
+                                htmlContent += '</ul>';
+                                currentCourt = '';
+                            }
+                            if (currentPark) {
+                                htmlContent += '</ul>';
+                                currentPark = '';
+                            }
+                            return;
+                        }
+
+                        // Check for top-level message (e.g., "I found available courts...")
+                        if (!line.startsWith('•')) {
+                            htmlContent += `<p>${line}</p>`;
+                            return;
+                        }
+
+                        // Parse for park name
+                        const parkMatch = line.match(/•\s*(.*?)\s*$/);
+                        if (parkMatch) {
+                            if (currentPark) {
+                                htmlContent += '</ul>'; // Close previous park list
+                            }
+                            currentPark = parkMatch[1].trim();
+                            htmlContent += `<strong>${currentPark}</strong><ul>`;
+                            return;
+                        }
+
+                        // Parse for court name
+                        const courtMatch = line.match(/•\s*(.*?)\s*•/);
+                        if (courtMatch && currentPark) {
+                            if (currentCourt) {
+                                htmlContent += '</ul>'; // Close previous court list
+                            }
+                            currentCourt = courtMatch[1].trim();
+                            htmlContent += `<li><strong>${currentCourt}</strong><ul>`;
+                            return;
+                        }
+
+                        // Parse for available time slots
+                        const timeMatch = line.match(/•\s*Available time slots:\s*(.*)/);
+                        if (timeMatch && currentCourt) {
+                            const timeSlots = timeMatch[1].trim().split(/\s*-\s*|,\s*/);
+                            const formattedTime = timeSlots.join(' - ');
+                            htmlContent += `<li>Available time slots: ${formattedTime}</li>`;
+                            return;
+                        }
+                    });
+
+                    // Close any remaining open lists
+                    if (currentCourt) {
+                        htmlContent += '</ul>';
+                    }
+                    if (currentPark) {
+                        htmlContent += '</ul>';
+                    }
+
+                    messageDiv.innerHTML = htmlContent;
+                } else {
+                    messageDiv.innerText = message;
+                }
+
+                chatLog.appendChild(messageDiv);
+                chatLog.scrollTop = chatLog.scrollHeight;
+            }
+
+            async function sendMessage() {
+                const message = userInput.value.trim();
+                if (message === '') return;
+
+                appendMessage('user', message);
+                userInput.value = '';
+
+                try {
+                    const response = await fetch('/chat', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ message: message })
+                    });
+                    const data = await response.json();
+                    appendMessage('bot', data.response);
+                } catch (error) {
+                    console.error('Error:', error);
+                    appendMessage('bot', 'Sorry, I am having trouble connecting right now.');
+                }
+            }
+
+            sendButton.addEventListener('click', sendMessage);
+            userInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    sendMessage();
+                }
+            });
+        });
+    </script>
+</body>
+</html>
