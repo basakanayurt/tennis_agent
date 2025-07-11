@@ -1,21 +1,15 @@
 from langchain_openai import ChatOpenAI
 from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain.memory import ConversationBufferMemory
 from langchain.chains import LLMChain
-from langchain.schema import Document
-from langchain.callbacks import StdOutCallbackHandler
-from langchain.tools import tool
 from langchain.agents import AgentExecutor, create_tool_calling_agent
 
 from datetime import datetime, time, timedelta
 import os
 from dotenv import load_dotenv, find_dotenv
-import pandas as pd
-from io import StringIO
 from typing import List, Dict, Optional
 from collections import defaultdict
 from pydantic import BaseModel, Field, ValidationError
-from utils import to_hhmm, from_hhmm, calculate_duration_minutes
+from utils import from_hhmm, calculate_duration_minutes
 from scrapers import albany_scraper
 
 # Load .env

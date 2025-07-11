@@ -9,7 +9,6 @@ from langchain.memory import ConversationBufferMemory
 from langchain_core.exceptions import OutputParserException
 from langchain_core.tools import tool
 from typing import List, Dict, Optional
-from pydantic import BaseModel, Field
 
 # Import the core agent logic and the tool's base definition
 from agent import get_agent_executor, filter_court_availability, FilterInput
