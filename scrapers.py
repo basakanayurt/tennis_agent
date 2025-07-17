@@ -1,11 +1,15 @@
 from utils import from_hhmm, to_hhmm, calculate_duration_minutes
 from langchain_community.document_loaders import WebBaseLoader
 import re
-
+import requests
+import os
+# Load .env
+from dotenv import load_dotenv, find_dotenv
+_ = load_dotenv(find_dotenv())
+SCRAPERAPI_API_KEY = os.getenv("SCRAPERAPI_API_KEY")
 
 def albany_scraper(target_date):
     begintime_url_param = "05:00 am"
-    base_url = f"https://caalbanyweb.myvscloud.com/webtrac/web/search.html?module=FR&FRClass=TENNI&date={target_date}&begintime={begintime_url_param.replace(' ', '%20')}&Action=Start"
 
     headers = {
         "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36",
@@ -21,8 +25,51 @@ def albany_scraper(target_date):
         "Sec-Fetch-User": "?1",
     }
 
-    print(f"Loading data from: {base_url}")
-    loader = WebBaseLoader(base_url, requests_kwargs={"headers": headers})
+
+    original_base_url = f"https://caalbanyweb.myvscloud.com/webtrac/web/search.html?module=FR&FRClass=TENNI&date={target_date}&begintime={begintime_url_param.replace(' ', '%20')}&Action=Start"
+    # Construct the ScraperAPI URL
+    # Add 'render=true' if the site uses a lot of JavaScript for content
+    # Add 'country_code=US' and 'residential=true' for residential US proxies
+    # For city-level targeting (Oakland, Albany, Berkeley), you'd add:
+    # &city=oakland (or albany, berkeley) - confirm with ScraperAPI docs for exact parameter name
+    scraperapi_params = f"api_key={SCRAPERAPI_API_KEY}&url={original_base_url}"
+
+    # If the site loads content with JavaScript, add render=true
+    # scraperapi_params += "&render=true"
+
+    # For residential IPs:
+    scraperapi_params += "&residential=true"
+
+    # For US country code (mandatory for city targeting)
+    scraperapi_params += "&country_code=US"
+
+    # For specific city (this parameter name might vary slightly, check ScraperAPI docs)
+    # Example: you might need to try different cities in the Bay Area if a direct match isn't available
+    # scraperapi_params += "&city=oakland"
+
+    base_url = f"http://api.scraperapi.com/?{scraperapi_params}"
+
+
+    try:
+        response = requests.get(base_url, timeout=100)#, headers=headers,)
+
+        # --- NEW DEBUGGING LINES ---
+        print(f"Status Code: {response.status_code}")
+        print(f"Response Content Length: {len(response.text)}")
+        print(f"Response Content (first 500 chars):\n{response.text[:500]}")
+
+        response.raise_for_status()  # This will raise an exception for bad status codes (e.g., 4xx or 5xx)
+
+        s = response.text
+        print(s)
+
+    except requests.exceptions.RequestException as e:
+        print(f"An error occurred: {e}")
+        return [{"message": "Failed to load from the website due to a network error."}]
+
+
+    loader = WebBaseLoader(base_url) #, requests_kwargs={"headers": headers})
+
     docs = loader.load()
 
     if not docs:

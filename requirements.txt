@@ -34,3 +34,4 @@ win32com==0.0.1
 gunicorn
 beautifulsoup4
 lxml
+requests
