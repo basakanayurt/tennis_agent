@@ -34,3 +34,4 @@ gunicorn
 beautifulsoup4
 lxml
 requests
+redis

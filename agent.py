@@ -11,20 +11,28 @@ from collections import defaultdict
 from pydantic import BaseModel, Field, ValidationError
 from utils import from_hhmm, calculate_duration_minutes
 from scrapers import albany_scraper
+import redis
+import json
 
 # Load .env
 _ = load_dotenv(find_dotenv())
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+_redis_client = None
+_scrape_cache_ttl_seconds = 3600 # Default to 1 hour, will be overridden by app.py
 
-
-def get_tennis_court_availability(date: str = None, city_names:List[str]=None, cache:Dict=None) -> List[Dict]:
+def get_tennis_court_availability(date: str = None, city_names:List[str]=None) -> List[Dict]:
     """
-    Fetches tennis court availability for a given date.
+    Fetches tennis court availability for a given date, using Redis cache.
     The date should be provided in 'MM/DD/YYYY' format (e.g., '06/21/2025').
     If no date is provided, it defaults to today's date.
     The web scraping always starts at 05:00 AM.
     Returns a list of dictionaries, each representing a court availability slot.
     """
+    global _redis_client, _scrape_cache_ttl_seconds # Declare intent to modify globals
+
+    if _redis_client is None:
+        print("WARNING: Redis client not initialized in agent.py. Scraping cache will NOT work.")
+
     if not city_names:
         # TODO later add other cities you can scrape
         city_names = ["Albany"]
@@ -40,16 +48,38 @@ def get_tennis_court_availability(date: str = None, city_names:List[str]=None, c
 
     availability_data = []
     for city in city_names:
-        if (target_date, city) not in cache:
+        # Create a unique cache key for each date and city
+        cache_key = f"scrape_cache:{target_date}:{city.lower()}"
+
+        cached_rows = None
+        if _redis_client:
+            cached_rows_json = _redis_client.get(cache_key)
+            if cached_rows_json:
+                try:
+                    cached_rows = json.loads(cached_rows_json)
+                    print(f"INFO: Cache hit for scrape_cache:{cache_key}")
+                except (json.JSONDecodeError, TypeError) as e:
+                    print(f"WARNING: Corrupted cache data for {cache_key}: {e}. Will re-scrape.")
+                    # In case of corruption, delete the bad key to force re-scrape
+                    _redis_client.delete(cache_key)
+            else:
+                print(f"INFO: Cache miss for scrape_cache:{cache_key}. Scraping...")
+
+        if cached_rows is None: # If not in cache or Redis is not available or data was corrupted
             if city.lower() == "albany":
                 rows = albany_scraper(target_date)
-                cache[(target_date, city)] = rows
+                if _redis_client and rows and not any("message" in r for r in rows): # Only cache if scrape was successful and not an error message
+                    _redis_client.set(cache_key, json.dumps(rows), ex=_scrape_cache_ttl_seconds) # Cache with TTL
+                    print(f"INFO: Cached {len(rows)} entries for scrape_cache:{cache_key}")
+                elif _redis_client:
+                    print(f"WARNING: Did not cache for {cache_key} due to empty rows or error message from scraper.")
+                availability_data.extend(rows)
             # TODO: Add logic for other cities like Berkeley, Oakland
-
-        if  (target_date, city) in cache:
-            availability_data.extend(cache[(target_date, city)])
+        else:
+            availability_data.extend(cached_rows)
 
     return availability_data
+
 
 
 class FilteredCourtSlot(BaseModel):
@@ -137,12 +167,11 @@ def filter_court_availability(
         park_name: Optional[str] = None,
         court_name: Optional[str] = None,
         min_duration_minutes: Optional[int] = None,
-        cache:Optional[Dict] = None
 ) -> List[FilteredCourtSlot]:
     """
     Filters a list of court availability slots based on specified criteria.
     """
-    availability_data = get_tennis_court_availability(date=date, city_names=city_names, cache=cache)
+    availability_data = get_tennis_court_availability(date=date, city_names=city_names)
 
     filtered_slots_list = []
 
@@ -164,7 +193,7 @@ def filter_court_availability(
 
         if city_names:
             city_match = False
-            for city_name_filter in city_names: # Renamed to avoid shadowing
+            for city_name_filter in city_names:
                 if city_name_filter.lower() in slot.get("city_name", "").lower():
                     city_match = True
                     break
@@ -227,7 +256,7 @@ def get_current_date_prompt(current_date):
          "1. Extract user preferences (e.g., date, time window, duration, location, or court name).\n"
          "2. If the user doesn't give a date, assume today. If they don’t say how long, assume 1 hour.\n"
          "3. Clearly present the final results to the user."
-         "   *  Follow the grouping level city Name, Park name, and the under each court name present the Available time slots"
+         "   * Follow the grouping level city Name, Park name, and the under each court name present the Available time slots"
          "   * If no slots match the user's criteria after filtering and merging, politely explain that no availability was found."
          "   * If any tool returns a dictionary with a message key (indicating an error or no data), relay that message to the user directly."
          "6. when the user chooses a specific court and time from the options, ask again to confirm and make sure it's bookable by using your tools.\n"
@@ -239,6 +268,7 @@ def get_current_date_prompt(current_date):
                 * Convert all times to 24-hour HH:MM format before passing them as arguments to tools (e.g., "5 PM" becomes "17:00", "9 AM" becomes "09:00").
                 * Be conversational and helpful in your responses.
                 * Current date: {current_date}.
+                * Figure out the day of the week that today is and then what date it would correspond to if the user says "this friday, this sunday" etc.
                 * Current location: Albany, California, United States.
          """
          ),
@@ -249,8 +279,11 @@ def get_current_date_prompt(current_date):
     return prompt
 
 # Create the agent
-def get_agent_executor(user_specific_memory, user_specific_tools, current_date_str):
+def get_agent_executor(user_specific_memory, user_specific_tools, current_date_str, redis_client_from_app, scrape_cache_ttl):
     """Returns a new AgentExecutor instance with user-specific memory, tools, and a dynamic prompt."""
+    global _redis_client, _scrape_cache_ttl_seconds # Access the global variables
+    _redis_client = redis_client_from_app # Set the global redis client
+    _scrape_cache_ttl_seconds = scrape_cache_ttl # Set the global scrape cache TTL
 
     print(current_date_str)
     prompt = get_current_date_prompt(current_date_str)
