@@ -149,8 +149,7 @@ def chat():
 
         # --- Save User Memory (Chat History) to Redis ---
         if redis_client and user_specific_memory:
-            # Convert LangChain Message objects to JSON-serializable dictionaries
-            current_chat_history_dicts = messages_to_dict(user_specific_memory.chat_history)
+            current_chat_history_dicts = messages_to_dict(user_specific_memory.chat_memory.messages)
             redis_client.set(chat_history_key, json.dumps(current_chat_history_dicts), ex=CHAT_HISTORY_TTL_SECONDS)
             print(f"INFO: Saved chat history to Redis for user_id: {user_id}")
 
