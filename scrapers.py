@@ -50,23 +50,23 @@ def albany_scraper(target_date):
     base_url = f"http://api.scraperapi.com/?{scraperapi_params}"
 
 
-    try:
-        response = requests.get(base_url, timeout=100)#, headers=headers,)
-
-        # --- NEW DEBUGGING LINES ---
-        print(f"Status Code: {response.status_code}")
-        print(f"Response Content Length: {len(response.text)}")
-        print(f"Response Content (first 500 chars):\n{response.text[:500]}")
-
-        response.raise_for_status()  # This will raise an exception for bad status codes (e.g., 4xx or 5xx)
-
-        s = response.text
-        print(s)
-
-    except requests.exceptions.RequestException as e:
-        print(f"An error occurred: {e}")
-        return [{"message": "Failed to load from the website due to a network error."}]
-
+    # try:
+    #     response = requests.get(base_url, timeout=100)#, headers=headers,)
+    #
+    #     # --- NEW DEBUGGING LINES ---
+    #     print(f"Status Code: {response.status_code}")
+    #     print(f"Response Content Length: {len(response.text)}")
+    #     # print(f"Response Content (first 500 chars):\n{response.text[:500]}")
+    #
+    #     response.raise_for_status()  # This will raise an exception for bad status codes (e.g., 4xx or 5xx)
+    #
+    #     # s = response.text
+    #     # print(s)
+    #
+    # except requests.exceptions.RequestException as e:
+    #     print(f"An error occurred: {e}")
+    #     return [{"message": "Failed to load from the website due to a network error."}]
+    #
 
     loader = WebBaseLoader(base_url) #, requests_kwargs={"headers": headers})
 
