@@ -108,5 +108,5 @@ def chat():
         return jsonify({'response': 'An error occurred while processing your request.'}), 500
 
 
-# if __name__ == '__main__':
-#     app.run(debug=True)
+if __name__ == '__main__':
+    app.run(debug=True)
