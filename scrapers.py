@@ -57,18 +57,32 @@ def albany_scraper(target_date):
     #     return [{"message": "Failed to load from the website due to a network error."}]
     #
 
+    # loader = WebBaseLoader(
+    #     original_base_url,
+    #     proxies={
+    #         "http": base_url,
+    #         "https": base_url,
+    #     },
+    # )
+
+    proxies = {
+        "http": base_url,
+        "https": base_url,
+    }
+
     loader = WebBaseLoader(
         original_base_url,
-        proxies={
-            "http": base_url,
-            "https": base_url,
-        },
+        requests_kwargs={
+            "proxies": proxies,
+            "headers": headers,
+        }
     )
 
 
     # loader = WebBaseLoader(base_url) #, requests_kwargs={"headers": headers})
 
     docs = loader.load()
+    print(docs)
 
     if not docs:
         print("Failed to load documents. Returning empty list.")
