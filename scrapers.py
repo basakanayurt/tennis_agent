@@ -24,6 +24,9 @@ def albany_scraper(target_date):
         "Sec-Fetch-Mode": "navigate",
         "Sec-Fetch-Site": "same-origin",
         "Sec-Fetch-User": "?1",
+        "DNT": "1",  # Do Not Track request header
+        "Upgrade-Insecure-Requests": "1",
+        "Sec-GPC": "1"  # Global Privacy Control
     }
 
 
