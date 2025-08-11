@@ -6,7 +6,8 @@ import os
 # Load .env
 from dotenv import load_dotenv, find_dotenv
 _ = load_dotenv(find_dotenv())
-SCRAPERAPI_API_KEY = os.getenv("SCRAPERAPI_API_KEY")
+# SCRAPERAPI_API_KEY = os.getenv("SCRAPERAPI_API_KEY")
+# SCRAPERAPI_API_KEY = os.getenv("SCRAPINGBEE_API_KEY")
 
 def albany_scraper(target_date):
     begintime_url_param = "05:00 am"
@@ -27,28 +28,16 @@ def albany_scraper(target_date):
 
 
     original_base_url = f"https://caalbanyweb.myvscloud.com/webtrac/web/search.html?module=FR&FRClass=TENNI&date={target_date}&begintime={begintime_url_param.replace(' ', '%20')}&Action=Start"
-    # Construct the ScraperAPI URL
-    # Add 'render=true' if the site uses a lot of JavaScript for content
-    # Add 'country_code=US' and 'residential=true' for residential US proxies
-    # For city-level targeting (Oakland, Albany, Berkeley), you'd add:
-    # &city=oakland (or albany, berkeley) - confirm with ScraperAPI docs for exact parameter name
-    scraperapi_params = f"api_key={SCRAPERAPI_API_KEY}&url={original_base_url}"
 
-    # If the site loads content with JavaScript, add render=true
-    # scraperapi_params += "&render=true"
+    # base_url = f"https://app.scrapingbee.com/api/v1/?api_key={SCRAPERAPI_API_KEY}&url={original_base_url}&render_js=false"
 
-    # For residential IPs:
-    scraperapi_params += "&residential=true"
+##############################################################################################################################
+    iproyal_username =  os.getenv("IPROYAL_USERNAME")
+    iproyal_password = os.getenv("IPROYAL_PASSWORD")
+    iproyal_proxy_host = os.getenv("IPROYAL_HOSTNAME")
+    iproyal_proxy_port = os.getenv("IPROYAL_PORT")
 
-    # For US country code (mandatory for city targeting)
-    scraperapi_params += "&country_code=US"
-
-    # For specific city (this parameter name might vary slightly, check ScraperAPI docs)
-    # Example: you might need to try different cities in the Bay Area if a direct match isn't available
-    # scraperapi_params += "&city=oakland"
-
-    base_url = f"http://api.scraperapi.com/?{scraperapi_params}"
-
+    base_url = f"http://{iproyal_username}:{iproyal_password}@{iproyal_proxy_host}:{iproyal_proxy_port}"
 
     # try:
     #     response = requests.get(base_url, timeout=100)#, headers=headers,)
@@ -68,7 +57,16 @@ def albany_scraper(target_date):
     #     return [{"message": "Failed to load from the website due to a network error."}]
     #
 
-    loader = WebBaseLoader(base_url) #, requests_kwargs={"headers": headers})
+    loader = WebBaseLoader(
+        original_base_url,
+        proxies={
+            "http": base_url,
+            "https": base_url,
+        },
+    )
+
+
+    # loader = WebBaseLoader(base_url) #, requests_kwargs={"headers": headers})
 
     docs = loader.load()
 
